@@ -17,16 +17,17 @@ class DecisionTreeClassifier(object):
         self.min_samples_split = min_samples_split
         self.criterion = criterion
         self.depth = 0
+        self.nodes = []
 
     def _gini(self, y):
         _, p = np.unique(y, return_counts=True)
-        p /= p.sum()
+        p = p / p.sum()
         value = -(p * np.log2(p)).sum()
         return value
 
     def _entropy(self, y):
         _, p = np.unique(y, return_counts=True)
-        p /= p.sum()
+        p = p / p.sum()
 
         value = 1 - (p ** 2).sum()
         return value
@@ -55,6 +56,7 @@ class DecisionTreeClassifier(object):
         if len(unique_y) == 1:
             self.current_node = Node()
             self.current_node.prediction = unique_y[0]
+            self.nodes.append(self.current_node)
             return self.current_node
 
         # find the best split
@@ -75,22 +77,42 @@ class DecisionTreeClassifier(object):
 
         # split the data
         best_left_mask, best_right_mask = best_split
-        X_left, y_left = X[best_left_mask, :], y[best_left_mask]
-        X_right, y_right = X[best_right_mask, :], y[best_right_mask]
+        X_left, y_left = X[best_left_mask.squeeze(axis=1)], y[best_left_mask].reshape(-1, 1)
+        X_right, y_right = X[best_right_mask.squeeze(axis=1)], y[best_right_mask].reshape(-1, 1)
 
-        if (len(y_left) == 0) or (len(y_right) == 0) or (self.current_depth == self.max_depth):
+        if (len(y_left) == 0) or (len(y_right) == 0) or (self.depth == self.max_depth):
             self.current_node = Node()
             self.current_node.prediction = unique_y[np.argmax(counts_y)]
+            self.nodes.append(self.current_node)
             return self.current_node
 
         # create a node and grow two subtrees
         self.current_node = Node()
+        self.current_node.threshold = best_threshold
+        self.current_node.feature_idx = best_feature_idx
+        self.nodes.append(self.current_node)
         self.depth += 1
         self.current_node.left = self.fit(X_left, y_left)
         self.current_node.right = self.fit(X_right, y_right)
-        return
+        return self.current_node
 
+    def _predict_sample(self, x, node):
+        if (node.left is None) or (node.right is None):
+            return node.prediction
 
+        if x[:, node.feature_idx] < node.threshold:
+            node = node.left
+        else:
+            node = node.right
 
+        self._predict_sample(x, node)
 
+    def predict(self, X):
+        n = X.shape[0]
+        y_pred = np.empty((n, 1), dtype=np.int16)
+
+        for idx in range(n):
+            y_pred[idx] = self._predict_sample(X[idx, :], self.nodes[1])
+
+        return y_pred
 
