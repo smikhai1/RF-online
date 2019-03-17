@@ -46,15 +46,16 @@ class DecisionTreeClassifier(object):
 
 
     def fit(self, X, y):
-        self.current_node.labels = y
+
         m, d = X.shape
 
         # check whether there are different
         # classes in the current node
-        unique_y, counts_y = np.unique(self.current_node.labels, return_counts=True)
+        unique_y, counts_y = np.unique(y, return_counts=True)
         if len(unique_y) == 1:
+            self.current_node = Node()
             self.current_node.prediction = unique_y[0]
-            return
+            return self.current_node
 
         # find the best split
         max_ig = 0
@@ -69,8 +70,8 @@ class DecisionTreeClassifier(object):
                 if ig > max_ig:
                     max_ig = ig
                     best_split = (left_mask, right_mask)
-                    self.current_node.feature_idx = feat_idx
-                    self.current_node.threshold = threshold
+                    best_feature_idx = feat_idx
+                    best_threshold = threshold
 
         # split the data
         best_left_mask, best_right_mask = best_split
@@ -78,10 +79,12 @@ class DecisionTreeClassifier(object):
         X_right, y_right = X[best_right_mask, :], y[best_right_mask]
 
         if (len(y_left) == 0) or (len(y_right) == 0) or (self.current_depth == self.max_depth):
+            self.current_node = Node()
             self.current_node.prediction = unique_y[np.argmax(counts_y)]
-            return
+            return self.current_node
 
         # create a node and grow two subtrees
+        self.current_node = Node()
         self.depth += 1
         self.current_node.left = self.fit(X_left, y_left)
         self.current_node.right = self.fit(X_right, y_right)
