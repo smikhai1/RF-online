@@ -10,6 +10,9 @@ class Node(object):
         self.right = right
         self.labels = labels
 
+    def __len__(self):
+        pass
+
 class DecisionTreeClassifier(object):
 
     def __init__(self, max_depth=np.inf, min_samples_split=2, criterion='gini'):
@@ -57,43 +60,50 @@ class DecisionTreeClassifier(object):
             # classes in the current node
             unique_y, counts_y = np.unique(y, return_counts=True)
             if len(unique_y) == 1:
-
                 node.prediction = unique_y[0]
-                self.nodes.append(node)
+                return node
+
+            # pre-prunning
+            if (self.depth == self.max_depth) or (m < self.min_samples_split):
+                node.prediction = unique_y[np.argmax(counts_y)]
                 return node
 
             # find the best split
             max_ig = 0
 
             for feat_idx in range(d):
-                for i in range(m):
-                    threshold = X[i, feat_idx]
-                    left_mask = np.argwhere(X[:, feat_idx] < threshold)
-                    right_mask = np.argwhere(X[:, feat_idx] >= threshold)
+
+                sorted_idxs = np.argsort(X[:, feat_idx])
+                y_sorted = y[sorted_idxs].squeeze()
+                threshold_idxs = np.argwhere(y_sorted[1:] != y_sorted[:-1])
+                thresholds = X[threshold_idxs, feat_idx]
+
+                for t in thresholds:
+                    left_mask = np.argwhere(X[:, feat_idx] < t)
+                    right_mask = np.argwhere(X[:, feat_idx] >= t)
                     ig = self._inf_gain(X, y, left_mask, right_mask)
 
                     if ig > max_ig:
                         max_ig = ig
                         best_split = (left_mask, right_mask)
                         best_feature_idx = feat_idx
-                        best_threshold = threshold
+                        best_threshold = t
+                    else:
+                        best_split = (left_mask, right_mask)
 
             # split the data
+            self.depth += 1
             best_left_mask, best_right_mask = best_split
             X_left, y_left = X[best_left_mask.squeeze(axis=1)], y[best_left_mask].reshape(-1, 1)
             X_right, y_right = X[best_right_mask.squeeze(axis=1)], y[best_right_mask].reshape(-1, 1)
 
             if (len(y_left) == 0) or (len(y_right) == 0) or (self.depth == self.max_depth):
-
                 node.prediction = unique_y[np.argmax(counts_y)]
-                self.nodes.append(node)
                 return node
 
             # create a node and grow two subtrees
-
             node.threshold = best_threshold
             node.feature_idx = best_feature_idx
-            self.nodes.append(node)
             self.depth += 1
             node.left = grow_tree(X_left, y_left, node = Node())
             node.right = grow_tree(X_right, y_right, node = Node())
