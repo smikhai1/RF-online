@@ -126,6 +126,8 @@ class DecisionTreeClassifier(BaseEstimator):
 
         self._grow_subtree(X, y, self.root_node)
 
+        return self
+
     def _predict_sample(self, x, node):
         if (node.left is None) or (node.right is None):
             return node.prediction
