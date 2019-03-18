@@ -1,5 +1,8 @@
 import numpy as np
+from sklearn.base import BaseEstimator
 
+### TODO 1. Implement computation of tree depth
+### TODO 2. Implement different pre-pruning strategies
 
 class Node(object):
 
@@ -8,21 +11,23 @@ class Node(object):
         self.threshold = threshold
         self.left = left
         self.right = right
-        self.labels = labels
 
-    def __len__(self):
-        pass
+class DecisionTreeClassifier(BaseEstimator):
 
-class DecisionTreeClassifier(object):
-
-    def __init__(self, max_depth=np.inf, min_samples_split=2, criterion='gini'):
+    def __init__(self, max_depth=np.inf, min_samples_split=2, criterion='gini', splitter='best', max_features=None,
+                 random_state=None):
+        super(DecisionTreeClassifier, self).__init__()
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.criterion = criterion
         self.depth = 0
         self.nodes = []
         self.root_node = Node()
+        self.splitter = splitter
+        self.max_features = max_features
+        self.random_state = random_state
 
+    # utils
     def _gini(self, y):
         _, p = np.unique(y, return_counts=True)
         p = p / p.sum()
@@ -49,67 +54,78 @@ class DecisionTreeClassifier(object):
 
         return ig
 
+    def _split(self, X, y):
 
-    def fit(self, X, y):
+        m, d = X.shape
 
-        def grow_tree(X, y, node=self.root_node):
+        np.random.seed(self.random_state)
+        feat_idxs = np.random.permutation(d)
 
-            m, d = X.shape
+        max_features = {'log': np.log2, 'sqrt': np.sqrt}
+        if self.max_features:
+            d = int(np.floor(max_features[self.max_features](d)))
+            feat_idxs = np.random.choice(feat_idxs, d)
 
-            # check whether there are different
-            # classes in the current node
-            unique_y, counts_y = np.unique(y, return_counts=True)
-            if len(unique_y) == 1:
-                node.prediction = unique_y[0]
-                return node
 
-            # pre-prunning
-            if (self.depth == self.max_depth) or (m < self.min_samples_split):
-                node.prediction = unique_y[np.argmax(counts_y)]
-                return node
-
-            # find the best split
-            max_ig = 0
-
-            for feat_idx in range(d):
-
+        max_ig = -np.inf
+        for feat_idx in feat_idxs:
+            if self.splitter == 'best':
                 sorted_idxs = np.argsort(X[:, feat_idx])
                 y_sorted = y[sorted_idxs].squeeze()
                 threshold_idxs = np.argwhere(y_sorted[1:] != y_sorted[:-1])
                 thresholds = X[threshold_idxs, feat_idx]
+            elif self.splitter == 'random':
+                thresholds = np.random.choice(X[:, feat_idx], 3)
 
-                for t in thresholds:
-                    left_mask = np.argwhere(X[:, feat_idx] < t)
-                    right_mask = np.argwhere(X[:, feat_idx] >= t)
-                    ig = self._inf_gain(X, y, left_mask, right_mask)
+            for t in thresholds:
+                left_mask = np.argwhere(X[:, feat_idx] < t)
+                right_mask = np.argwhere(X[:, feat_idx] >= t)
+                ig = self._inf_gain(X, y, left_mask, right_mask)
 
-                    if ig > max_ig:
-                        max_ig = ig
-                        best_split = (left_mask, right_mask)
-                        best_feature_idx = feat_idx
-                        best_threshold = t
-                    else:
-                        best_split = (left_mask, right_mask)
+                if ig > max_ig:
+                    max_ig = ig
+                    best_split = (left_mask, right_mask)
+                    best_feature_idx = feat_idx
+                    best_threshold = t
 
-            # split the data
-            self.depth += 1
-            best_left_mask, best_right_mask = best_split
-            X_left, y_left = X[best_left_mask.squeeze(axis=1)], y[best_left_mask].reshape(-1, 1)
-            X_right, y_right = X[best_right_mask.squeeze(axis=1)], y[best_right_mask].reshape(-1, 1)
+        return best_split, best_feature_idx, best_threshold
 
-            if (len(y_left) == 0) or (len(y_right) == 0) or (self.depth == self.max_depth):
-                node.prediction = unique_y[np.argmax(counts_y)]
-                return node
+    def _grow_subtree(self, X, y, node=None):
 
-            # create a node and grow two subtrees
-            node.threshold = best_threshold
-            node.feature_idx = best_feature_idx
-            self.depth += 1
-            node.left = grow_tree(X_left, y_left, node = Node())
-            node.right = grow_tree(X_right, y_right, node = Node())
+        m, d = X.shape
+
+        # check whether there are different
+        # classes in the current node
+        unique_y, counts_y = np.unique(y, return_counts=True)
+        if len(unique_y) == 1:
+            node.prediction = unique_y[0]
             return node
 
-        grow_tree(X, y, self.root_node)
+        # pre-prunning
+        if (self.depth == self.max_depth) or (m < self.min_samples_split):
+            node.prediction = unique_y[np.argmax(counts_y)]
+            return node
+
+        # split the data
+        best_split, best_feature_idx, best_threshold = self._split(X, y)
+        best_left_mask, best_right_mask = best_split
+        X_left, y_left = X[best_left_mask.squeeze(axis=1)], y[best_left_mask].reshape(-1, 1)
+        X_right, y_right = X[best_right_mask.squeeze(axis=1)], y[best_right_mask].reshape(-1, 1)
+
+        if (len(y_left) == 0) or (len(y_right) == 0) or (self.depth == self.max_depth):
+            node.prediction = unique_y[np.argmax(counts_y)]
+            return node
+
+        # create a node and grow two subtrees
+        node.threshold = best_threshold
+        node.feature_idx = best_feature_idx
+        node.left = self._grow_subtree(X_left, y_left, node=Node())
+        node.right = self._grow_subtree(X_right, y_right, node=Node())
+        return node
+
+    def fit(self, X, y):
+
+        self._grow_subtree(X, y, self.root_node)
 
     def _predict_sample(self, x, node):
         if (node.left is None) or (node.right is None):
