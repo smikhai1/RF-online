@@ -2,7 +2,8 @@ import numpy as np
 from sklearn.base import BaseEstimator
 
 ### TODO 1. Implement computation of tree depth
-### TODO 2. Implement different pre-pruning strategies
+### TODO 2. Implement more efficiently
+### TODO 3. Implement different pre-pruning strategies
 
 class Node(object):
 
