@@ -21,7 +21,6 @@ class DecisionTreeClassifier(BaseEstimator):
         self.min_samples_split = min_samples_split
         self.criterion = criterion
         self.depth = 0
-        self.nodes = []
         self.root_node = Node()
         self.splitter = splitter
         self.max_features = max_features
