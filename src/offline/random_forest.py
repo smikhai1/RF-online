@@ -3,6 +3,7 @@ from offline.decision_tree import DecisionTreeClassifier
 from sklearn.base import BaseEstimator
 from scipy.stats import mode
 from sklearn.utils import resample
+from sklearn.metrics import accuracy_score
 
 
 ### TODO 1. Implement computation of OOB scores
@@ -39,6 +40,7 @@ class RandomForestClassifier(BaseEstimator):
                                                     criterion=self.criterion, splitter=self.splitter,
                                                     max_features=self.max_features, random_state=self.random_state)
             self.estimators_.append(base_estimator.fit(X_, y_))
+
         return self
 
     def predict(self, X):
