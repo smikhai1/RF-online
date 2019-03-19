@@ -23,11 +23,16 @@ class RandomForestClassifier(BaseEstimator):
         self.bootstrap = bootstrap
         self.oob_score = oob_score
         self.random_state = random_state
-        self.estimators_ = []
-        self.oob_scores_ = []
+        self.estimators_ = None
+        self.oob_scores_ = None
 
 
     def fit(self, X, y):
+
+        # initialize
+        self.estimators_ = []
+        self.oob_scores_ = []
+
         m, d = X.shape
         X_, y_ = np.copy(X), np.copy(y)
         for t in range(self.n_estimators):
