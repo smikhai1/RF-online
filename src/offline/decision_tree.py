@@ -1,5 +1,6 @@
 import numpy as np
 from base.utils import gini, entropy, inf_gain
+from numba import jit
 
 ### TODO 1. Speed up algorithm
 ### TODO 2. Implement different pre-pruning strategies
@@ -27,6 +28,7 @@ class DecisionTreeClassifier(object):
         self.max_features = max_features
         self.random_state = random_state
 
+    @jit(nopython=True)
     def _split(self, X, y):
 
         m, d = X.shape
@@ -70,6 +72,7 @@ class DecisionTreeClassifier(object):
 
         return best_split, best_feature_idx, best_threshold
 
+    @jit(nopython=True)
     def _grow_subtree(self, X, y, node=None):
 
         m, d = X.shape
@@ -103,6 +106,7 @@ class DecisionTreeClassifier(object):
         node.right = self._grow_subtree(X_right, y_right, node=Node(depth=node.depth+1))
         return node
 
+    @jit(nopython=True)
     def fit(self, X, y):
 
         self.root_node = Node(depth=0)
@@ -110,6 +114,7 @@ class DecisionTreeClassifier(object):
 
         return self
 
+    @jit(nopython=True)
     def _predict_sample(self, x, node):
         if (node.left is None) or (node.right is None):
             return node.prediction
@@ -122,6 +127,7 @@ class DecisionTreeClassifier(object):
         y_pred = self._predict_sample(x, node)
         return y_pred
 
+    @jit(nopython=True)
     def predict(self, X):
         n = X.shape[0]
         y_pred = np.empty((n, 1), dtype=np.int16)
