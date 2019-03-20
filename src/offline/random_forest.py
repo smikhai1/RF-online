@@ -1,17 +1,17 @@
 import numpy as np
 from offline.decision_tree import DecisionTreeClassifier
-from sklearn.base import BaseEstimator
 from scipy.stats import mode
 from sklearn.utils import resample
 from sklearn.metrics import accuracy_score
 
 
-### TODO 1. Implement computation of OOB scores
-### TODO 2. Make multi-thread implementation
+### TODO 1. Make multi-thread implementation
+### TODO 2. Improve structure of code
+### TODO 3. Implement RandomForestRegressor
 
-class RandomForestClassifier(BaseEstimator):
+class RandomForestClassifier(object):
 
-    def __init__(self, n_estimators=10, max_depth=np.inf, min_samples_split=2, criterion='gini', splitter='best',
+    def __init__(self, n_estimators=10, max_depth=np.inf, min_samples_split=50, criterion='gini', splitter='best',
                  max_features='sqrt', bootstrap=True, oob_score=False, random_state=None):
 
         self.n_estimators = n_estimators

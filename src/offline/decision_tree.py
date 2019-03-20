@@ -1,24 +1,23 @@
 import numpy as np
-from sklearn.base import BaseEstimator
 
-### TODO 1. Speed up
+### TODO 1. Speed up algorithm
 ### TODO 2. Implement different pre-pruning strategies
-### TODO 3. Improve structure
+### TODO 3. Improve structure of code
+### TODO 4. Implement DecisionTreeRegressor
 
 class Node(object):
 
-    def __init__(self, feature_idx=None, threshold=None, left=None, right=None, depth=None, labels=None):
+    def __init__(self, feature_idx=None, threshold=None, left=None, right=None, depth=None):
         self.feature_idx = feature_idx
         self.threshold = threshold
         self.left = left
         self.right = right
         self.depth = depth
 
-class DecisionTreeClassifier(BaseEstimator):
+class DecisionTreeClassifier(object):
 
     def __init__(self, max_depth=np.inf, min_samples_split=2, criterion='gini', splitter='best', max_features=None,
                  random_state=None):
-        super(DecisionTreeClassifier, self).__init__()
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.criterion = criterion
