@@ -30,14 +30,15 @@ class DecisionTreeClassifier(object):
     def _gini(self, y):
         _, p = np.unique(y, return_counts=True)
         p = p / p.sum()
-        value = -(p * np.log2(p)).sum()
+        value = 1 - (p ** 2).sum()
+
         return value
 
     def _entropy(self, y):
         _, p = np.unique(y, return_counts=True)
         p = p / p.sum()
+        value = -(p * np.log2(p)).sum()
 
-        value = 1 - (p ** 2).sum()
         return value
 
     def _inf_gain(self, X, y, left_mask, right_mask):
