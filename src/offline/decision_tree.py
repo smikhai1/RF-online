@@ -1,17 +1,18 @@
 import numpy as np
 from sklearn.base import BaseEstimator
 
-### TODO 1. Implement computation of tree depth
-### TODO 2. Implement more efficiently
-### TODO 3. Implement different pre-pruning strategies
+### TODO 1. Speed up
+### TODO 2. Implement different pre-pruning strategies
+### TODO 3. Improve structure
 
 class Node(object):
 
-    def __init__(self, feature_idx=None, threshold=None, left=None, right=None, labels=None):
+    def __init__(self, feature_idx=None, threshold=None, left=None, right=None, depth=None, labels=None):
         self.feature_idx = feature_idx
         self.threshold = threshold
         self.left = left
         self.right = right
+        self.depth = depth
 
 class DecisionTreeClassifier(BaseEstimator):
 
@@ -22,7 +23,6 @@ class DecisionTreeClassifier(BaseEstimator):
         self.min_samples_split = min_samples_split
         self.criterion = criterion
         self.depth = 0
-        self.root_node = Node()
         self.splitter = splitter
         self.max_features = max_features
         self.random_state = random_state
@@ -102,7 +102,7 @@ class DecisionTreeClassifier(BaseEstimator):
             return node
 
         # pre-prunning
-        if (self.depth == self.max_depth) or (m < self.min_samples_split):
+        if (node.depth == self.max_depth) or (m < self.min_samples_split):
             node.prediction = unique_y[np.argmax(counts_y)]
             return node
 
@@ -112,20 +112,21 @@ class DecisionTreeClassifier(BaseEstimator):
         X_left, y_left = X[best_left_mask.squeeze(axis=1)], y[best_left_mask].reshape(-1, 1)
         X_right, y_right = X[best_right_mask.squeeze(axis=1)], y[best_right_mask].reshape(-1, 1)
 
-        if (len(y_left) == 0) or (len(y_right) == 0) or (self.depth == self.max_depth):
+        if (len(y_left) == 0) or (len(y_right) == 0):
             node.prediction = unique_y[np.argmax(counts_y)]
             return node
 
         # create a node and grow two subtrees
         node.threshold = best_threshold
         node.feature_idx = best_feature_idx
-        node.left = self._grow_subtree(X_left, y_left, node=Node())
-        node.right = self._grow_subtree(X_right, y_right, node=Node())
+        node.left = self._grow_subtree(X_left, y_left, node=Node(depth=node.depth+1))
+        node.right = self._grow_subtree(X_right, y_right, node=Node(depth=node.depth+1))
         return node
 
     def fit(self, X, y):
 
-        self._grow_subtree(X, y, self.root_node)
+        self.root_node = Node(depth=0)
+        self._grow_subtree(X, y, node=self.root_node)
 
         return self
 
