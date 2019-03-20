@@ -1,4 +1,5 @@
 import numpy as np
+from base.utils import gini, entropy, inf_gain
 
 ### TODO 1. Speed up algorithm
 ### TODO 2. Implement different pre-pruning strategies
@@ -26,34 +27,6 @@ class DecisionTreeClassifier(object):
         self.max_features = max_features
         self.random_state = random_state
 
-    # utils
-    def _gini(self, y):
-        _, p = np.unique(y, return_counts=True)
-        p = p / p.sum()
-        value = 1 - (p ** 2).sum()
-
-        return value
-
-    def _entropy(self, y):
-        _, p = np.unique(y, return_counts=True)
-        p = p / p.sum()
-        value = -(p * np.log2(p)).sum()
-
-        return value
-
-    def _inf_gain(self, X, y, left_mask, right_mask):
-        if self.criterion == 'gini':
-            criterion = self._gini
-        else:
-            criterion = self._entropy
-
-        X_left, y_left = X[left_mask, :], y[left_mask]
-        X_right, y_right = X[right_mask, :], y[right_mask]
-
-        ig = criterion(y) - len(y_left)/len(y) * criterion(y_left) - len(y_right)/len(y) * criterion(y_right)
-
-        return ig
-
     def _split(self, X, y):
 
         m, d = X.shape
@@ -64,10 +37,16 @@ class DecisionTreeClassifier(object):
         max_features = {'log': np.log2, 'sqrt': np.sqrt}
         if self.max_features:
             d = int(np.floor(max_features[self.max_features](d)))
-            feat_idxs = np.random.choice(feat_idxs, d)
+            feat_idxs = np.random.choice(feat_idxs, d, replace=False)
 
 
         max_ig = -np.inf
+
+        if self.criterion == 'gini':
+            criterion = gini
+        else:
+            criterion = entropy
+
         for feat_idx in feat_idxs:
             if self.splitter == 'best':
                 sorted_idxs = np.argsort(X[:, feat_idx])
@@ -80,7 +59,8 @@ class DecisionTreeClassifier(object):
             for t in thresholds:
                 left_mask = np.argwhere(X[:, feat_idx] < t)
                 right_mask = np.argwhere(X[:, feat_idx] >= t)
-                ig = self._inf_gain(X, y, left_mask, right_mask)
+
+                ig = inf_gain(X, y, left_mask, right_mask, criterion)
 
                 if ig > max_ig:
                     max_ig = ig
