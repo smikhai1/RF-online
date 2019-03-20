@@ -1,3 +1,5 @@
+import numpy as np
+
 # utils for offline
 def gini(y):
     _, p = np.unique(y, return_counts=True)
@@ -44,7 +46,7 @@ def entropy_online(node_stats):
 
     return value
 
-def inf_gain(node_stats, left_node_stats, right_node_stats, criterion):
+def inf_gain_online(node_stats, left_node_stats, right_node_stats, criterion):
 
     ig = criterion(node_stats) - len(left_node_stats)/len(node_stats) * criterion(left_node_stats) \
                                - len(right_node_stats)/len(node_stats) * criterion(right_node_stats)

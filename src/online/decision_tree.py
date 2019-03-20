@@ -10,20 +10,39 @@ class Node(object):
 
         self.test = ()  # the best pair of (feature_idx, threshold)
         self.node_stats = {} # dictionary contains counts of objects from a class in the node
-        self.left_node_stats = {} # dictionary contains counts of objects from a class in the left child node
-        self.right_node_stats = {} # dictionary contains counts of objects from a class in the right child node
+
 
         self.is_terminal = True
         self.alpha = alpha
         self.beta = beta
         self.max_features = max_features
-        self.X_cache = None
-        self.y_cache = None
+        self.X_cache = np.array([])
+        self.y_cache = np.array([])
         self.random_state = None
         self.criterion = criterion
+        self.prediction = None
 
-    def get_node_stats(self, y, node_stats):
-        if y not in self.node_stats:
+    def get_node_stats_arr(self, y, node_stats):
+        # repair
+        if type(y) is not np.ndarray:
+            if y not in node_stats:
+                node_stats[y] = 0
+            node_stats[y] += 1
+        else:
+            if len(y.shape) > 1:
+                y = y.squeeze()
+
+            n = y.shape[0]
+
+            for i in range(n):
+                if y[i] not in node_stats:
+                    node_stats[y[i]] = 0
+                node_stats[y[i]] += 1
+
+
+    def get_node_stats_int(self, y, node_stats):
+        # repair
+        if y not in node_stats:
             node_stats[y] = 0
         node_stats[y] += 1
 
@@ -53,12 +72,14 @@ class Node(object):
 
             threshold = np.random.uniform(min_feat_val, max_feat_val, 1)
 
-            left_mask = np.argwhere(self.X_cache[:, feat_idx] < threshold)
-            right_mask = np.argwhere(self.X_cache[:, feat_idx] >= threshold)
-
+            left_mask = np.argwhere(self.X_cache[:, feat_idx] < threshold).squeeze()
+            right_mask = np.argwhere(self.X_cache[:, feat_idx] >= threshold).squeeze()
             y_left, y_right = self.y_cache[left_mask], self.y_cache[right_mask]
-            self.get_node_stats(y_left, self.left_node_stats)
-            self.get_node_stats(y_right, self.right_node_stats)
+
+            self.left_node_stats = {}  # dictionary contains counts of objects from a class in the left child node
+            self.right_node_stats = {}  # dictionary contains counts of objects from a class in the right child node
+            self.get_node_stats_arr(y_left, self.left_node_stats)
+            self.get_node_stats_arr(y_right, self.right_node_stats)
 
             ig = inf_gain_online(self.node_stats, self.left_node_stats, self.right_node_stats, criterion)
 
@@ -71,25 +92,37 @@ class Node(object):
 
     def propagate(self, x, y):
         if self.is_terminal:
-            self.get_node_stats(y, self.node_stats)
+            self.X_cache = np.vstack([self.X_cache, x[None, :]]) if self.X_cache.size else x[None, :]
+            self.y_cache = np.vstack([self.y_cache, y]) if self.y_cache.size else y
+            self.get_node_stats_int(y, self.node_stats)
+            self.prediction = max(self.node_stats, key=self.node_stats.get)
 
             m, d = self.X_cache.shape
-            if  m > self.alpha:
-                self.best_feature_idx, self.best_threshold, max_ig = self._split
+            if m > self.alpha:
+                self.best_feature_idx, self.best_threshold, max_ig = self._split()
 
                 if max_ig > self.beta:
                     # splitting conditions are satisfied
                     self.is_terminal = False
+
                     # create left child node
                     self.left = Node(alpha=self.alpha, beta=self.beta, criterion=self.criterion,
                                      max_features=self.max_features, random_state=self.random_state
                                      )
                     self.left.node_stats = self.left_node_stats
+
                     # create right child node
                     self.right = Node(alpha=self.alpha, beta=self.beta, criterion=self.criterion,
                                      max_features=self.max_features, random_state=self.random_state
                                      )
                     self.right.node_stats = self.right_node_stats
+
+                    # clean the cache
+                    self.X_cache = np.array([])
+                    self.y_cache = np.array([])
+
+                    # delete prediction
+                    self.prediction = None
         else:
             if x[self.best_feature_idx] < self.best_threshold:
                 self.left.propagate(x, y)
@@ -115,7 +148,23 @@ class DTOnlineClassifier(object):
 
         return self
 
+    def _predict_sample(self, x, node):
+        if node.is_terminal:
+            return node.prediction
+
+        if x[node.best_feature_idx] < node.best_threshold:
+            node = node.left
+        else:
+            node = node.right
+
+        y_pred = self._predict_sample(x, node)
+        return y_pred
+
     def predict(self, X):
-        pass
+        n = X.shape[0]
+        y_pred = np.zeros((n, 1), dtype=np.int16)
 
+        for i in range(n):
+            y_pred[i] = self._predict_sample(X[i, :], self.root_node)
 
+        return y_pred
